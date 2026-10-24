@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --fondo: #E3E6E9; --superficie: #FFFFFF; --texto: #1E2124; --suave: #5B6168; --borde: #C6CBD0;
+    --asfalto: #2D3135; --linea: #ECECE4; --placa: #F3C623; --tinta: #15171A;
+    --libre: #3F8A58; --ocupada: #B9482B; --foco: #2F6FED;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --fondo: #181A1D; --superficie: #23262A; --texto: #E7E9EB; --suave: #A2A8AE; --borde: #393E43; color-scheme: dark; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Barlow', system-ui, sans-serif; background: var(--fondo); color: var(--texto); line-height: 1.45; }
+  h1, h2 { font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-weight: 700; margin: 0; }
+  .oculto { display: none !important; }
+  button, input, textarea { font: inherit; }
+  :focus-visible { outline: 3px solid var(--foco); outline-offset: 2px; }
+
+  /* Ingreso */
+  .login { min-height: 100vh; display: grid; place-items: center; padding: 1.5rem; }
+  .login form { width: 100%; max-width: 360px; background: var(--superficie); border: 1px solid var(--borde); border-radius: 10px; padding: 1.75rem; }
+  .login h1 { font-size: 2.2rem; }
+  .login p { color: var(--suave); margin: .25rem 0 1.25rem; }
+  label { display: block; font-weight: 600; font-size: .95rem; margin-bottom: .3rem; }
+  .campo { width: 100%; padding: .65rem .75rem; border: 1px solid var(--borde); border-radius: 6px; background: var(--superficie); color: var(--texto); margin-bottom: 1rem; }
+
+  /* Encabezado */
+  header { background: var(--asfalto); color: #fff; display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.5rem; padding: .7rem 1.5rem; }
+  header h1 { font-size: 1.55rem; }
+  nav { display: flex; gap: .25rem; flex: 1; flex-wrap: wrap; }
+  nav button { background: none; border: 0; color: #C8CDD2; font-weight: 600; padding: .45rem .9rem; border-radius: 6px; cursor: pointer; }
+  nav button[aria-current="page"] { background: var(--placa); color: var(--tinta); }
+  .quien { font-size: .9rem; color: #C8CDD2; display: flex; align-items: center; gap: .75rem; }
+  .quien button { background: none; border: 1px solid #6A7076; color: #fff; border-radius: 6px; padding: .3rem .7rem; cursor: pointer; }
+
+  main { max-width: 1180px; margin: 0 auto; padding: 1.5rem; }
+  .panel { background: var(--superficie); border: 1px solid var(--borde); border-radius: 10px; padding: 1.25rem; }
+  .panel h2 { font-size: 1.4rem; margin-bottom: .75rem; }
+
+  /* Operación */
+  .operacion { display: grid; grid-template-columns: minmax(280px, 360px) 1fr; gap: 1.5rem; align-items: start; }
+  @media (max-width: 840px) { .operacion { grid-template-columns: 1fr; } }
+
+  .placa { background: var(--placa); border: 4px solid var(--tinta); border-radius: 12px; padding: .4rem .75rem .45rem; text-align: center; }
+  .placa:focus-within { box-shadow: 0 0 0 4px var(--foco); }
+  .placa input { width: 100%; border: 0; background: transparent; text-align: center; font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-weight: 700; font-size: clamp(2.6rem, 9vw, 3.6rem); letter-spacing: .08em; color: var(--tinta); text-transform: uppercase; padding: 0; }
+  .placa input:focus { outline: none; }
+  .placa input::placeholder { color: rgba(21,23,26,.3); }
+  .placa span { display: block; color: var(--tinta); font-weight: 600; font-size: .85rem; letter-spacing: .05em; }
+  .ayuda { color: var(--suave); font-size: .88rem; margin: .5rem 0 0; }
+
+  .tipo { border: 0; padding: 0; margin: .9rem 0 0; display: flex; gap: 1.25rem; align-items: center; flex-wrap: wrap; }
+  .tipo legend { font-size: .88rem; color: var(--suave); padding: 0; margin-bottom: .3rem; width: 100%; }
+  .tipo label { display: flex; align-items: center; gap: .4rem; font-weight: 600; margin: 0; cursor: pointer; }
+  .tipo input { width: 1.1rem; height: 1.1rem; accent-color: var(--asfalto); }
+  .acciones { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-top: 1rem; }
+  .btn { font-weight: 600; padding: .8rem 1rem; border-radius: 8px; border: 2px solid var(--texto); cursor: pointer; background: transparent; color: var(--texto); }
+  .btn.principal { background: var(--asfalto); border-color: var(--asfalto); color: #fff; }
+  .btn:disabled { opacity: .55; cursor: wait; }
+
+  .mensaje { margin-top: 1rem; padding: .7rem .9rem; border-left: 4px solid; border-radius: 4px; font-size: .95rem; }
+  .mensaje.ok { border-color: var(--libre); background: rgba(63,138,88,.12); }
+  .mensaje.error { border-color: var(--ocupada); background: rgba(185,72,43,.12); }
+  .mensaje:empty { display: none; }
+
+  /* Patio: celdas pintadas como un parqueadero visto desde arriba */
+  .patio { background: var(--asfalto); color: #fff; border-radius: 10px; padding: 1.25rem; }
+  .patio + .patio { margin-top: 1rem; }
+  .patio-cab { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-bottom: .75rem; }
+  .patio h2 { font-size: 1.35rem; }
+  .patio-cab p { margin: 0; color: #C8CDD2; font-size: .92rem; }
+  .fila { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); border-right: 2px solid var(--linea); }
+  .fila.motos { grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); }
+  .celda { min-height: 100px; padding: .45rem; display: flex; flex-direction: column; justify-content: space-between; gap: .25rem; box-shadow: inset 2px 0 0 var(--linea); border: 0; border-bottom: 2px dashed rgba(236,236,228,.3); background: none; color: inherit; text-align: left; }
+  .fila.motos .celda { min-height: 78px; }
+  .celda b { font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: 1.05rem; color: #C8CDD2; }
+  .celda.ocupada { background: var(--ocupada); cursor: pointer; }
+  .celda.ocupada b { color: #fff; }
+  .celda .p { align-self: flex-start; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .95rem; font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-weight: 700; background: var(--placa); color: var(--tinta); border-radius: 3px; padding: 0 .3rem; letter-spacing: .04em; }
+  .celda small { font-size: .75rem; }
+  .celda .lib { color: #9CD3AE; }
+
+  /* Tablas y listas */
+  .filtros { display: flex; flex-wrap: wrap; gap: .75rem; align-items: end; margin-bottom: 1rem; }
+  .filtros div { flex: 1 1 150px; }
+  .filtros .campo { margin: 0; }
+  .tabla { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+  th, td { text-align: left; padding: .55rem .6rem; border-bottom: 1px solid var(--borde); white-space: nowrap; }
+  th { font-weight: 600; color: var(--suave); }
+  .estado-ABIERTO { color: var(--ocupada); font-weight: 600; }
+  .vacio { color: var(--suave); padding: 1rem 0; }
+  .novedades { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 1.5rem; align-items: start; }
+  @media (max-width: 840px) { .novedades { grid-template-columns: 1fr; } }
+  textarea.campo { min-height: 110px; resize: vertical; }
+  .lista { list-style: none; margin: 0; padding: 0; }
+  .lista li { padding: .75rem 0; border-bottom: 1px solid var(--borde); }
+  .lista .meta { font-size: .85rem; color: var(--suave); }
+  .chip { font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-weight: 700; background: var(--placa); color: var(--tinta); border-radius: 3px; padding: 0 .35rem; margin-right: .4rem; }
+
+</style>
+</head>
+<body>
+
+<section class="login" id="vista-login">
+  <form id="form-login">
+    <h1>Autos Colombia</h1>
+    <p>Ingresa con tu usuario de operador.</p>
+    <label for="usuario">Usuario</label>
+    <input class="campo" id="usuario" autocomplete="username" required>
+    <label for="clave">Contraseña</label>
+    <input class="campo" id="clave" type="password" autocomplete="current-password" required>
+    <button class="btn principal" style="width:100%" id="btn-login">Iniciar sesión</button>
+    <div class="mensaje" id="msg-login" role="alert"></div>
+  </form>
+</section>
+
+<div id="vista-app" class="oculto">
+  <header>
+    <h1>Autos Colombia</h1>
+    <nav>
+      <button data-vista="operacion" aria-current="page">Entradas y salidas</button>
+      <button data-vista="novedades">Novedades</button>
+      <button data-vista="historial" id="tab-historial">Historial</button>
+    </nav>
+    <div class="quien"><span id="nombre-op"></span><button id="btn-salir">Cerrar sesión</button></div>
+  </header>
+
+  <main>
+    <section data-seccion="operacion" class="operacion">
+      <div class="panel">
+        <h2>Registrar vehículo</h2>
+        <div class="placa">
+          <input id="placa" maxlength="8" placeholder="ABC123" autocomplete="off" aria-label="Placa del vehículo">
+          <span>COLOMBIA</span>
+        </div>
+        <p class="ayuda">Escribe la placa o toca una celda ocupada para seleccionarla.</p>
+        <fieldset class="tipo">
+          <legend>Tipo (solo para vehículos nuevos)</legend>
+          <label><input type="radio" name="tipo" value="CARRO" checked> Carro</label>
+          <label><input type="radio" name="tipo" value="MOTO"> Moto</label>
+        </fieldset>
+        <div class="acciones">
+          <button class="btn principal" id="btn-entrada">Registrar entrada</button>
+          <button class="btn" id="btn-salida">Registrar salida</button>
+        </div>
+        <div class="mensaje" id="msg-op" role="status"></div>
+      </div>
+      <div>
+        <div class="patio">
+          <div class="patio-cab"><h2>Carros</h2><p id="resumen-CARRO"></p></div>
+          <div class="fila" id="fila-CARRO"></div>
+        </div>
+        <div class="patio">
+          <div class="patio-cab"><h2>Motos</h2><p id="resumen-MOTO"></p></div>
+          <div class="fila motos" id="fila-MOTO"></div>
+        </div>
+      </div>
+    </section>
+
+    <section data-seccion="novedades" class="novedades oculto">
+      <form class="panel" id="form-novedad">
+        <h2>Registrar novedad</h2>
+        <label for="nov-placa">Placa</label>
+        <input class="campo" id="nov-placa" maxlength="8" placeholder="ABC123" required>
+        <label for="nov-desc">Qué pasó</label>
+        <textarea class="campo" id="nov-desc" placeholder="Ej.: rayón en la puerta trasera derecha al ingresar" required></textarea>
+        <button class="btn principal" id="btn-novedad">Guardar novedad</button>
+        <div class="mensaje" id="msg-nov" role="status"></div>
+      </form>
+      <div class="panel">
+        <h2>Últimas novedades</h2>
+        <ul class="lista" id="lista-nov"></ul>
+      </div>
+    </section>
+
+
+    <section data-seccion="historial" class="panel oculto">
+      <h2>Historial de entradas y salidas</h2>
+      <form class="filtros" id="form-historial">
+        <div><label for="h-placa">Placa</label><input class="campo" id="h-placa" maxlength="8"></div>
+        <div><label for="h-desde">Desde</label><input class="campo" id="h-desde" type="date"></div>
+        <div><label for="h-hasta">Hasta</label><input class="campo" id="h-hasta" type="date"></div>
+        <button class="btn principal">Buscar</button>
+      </form>
+      <div class="mensaje" id="msg-hist" role="status"></div>
+      <div class="tabla">
+        <table>
+          <thead><tr><th>Placa</th><th>Celda</th><th>Entrada</th><th>Salida</th><th>Estado</th><th>Registró</th></tr></thead>
+          <tbody id="tabla-hist"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+  const $ = s => document.querySelector(s);
+  let token = null;
+  let refresco = null;
+
+  function llamarUnaVez(fn, args) {
+    return new Promise((ok, fallo) =>
+      google.script.run
+        .withSuccessHandler(ok)
+        .withFailureHandler(e => fallo(new Error(String(e && e.message ? e.message : e).replace(/^Error:\s*/, ''))))[fn](...args));
+  }
+  const esFalloDeRed = err => /NetworkError|HTTP 0|conexi[oó]n/i.test(err.message);
+  // Reintenta hasta 2 veces si la conexión con Google se corta (error HTTP 0).
+  async function llamar(fn, ...args) {
+    for (let intento = 0; ; intento++) {
+      try { return await llamarUnaVez(fn, args); }
+      catch (err) {
+        if (!esFalloDeRed(err) || intento >= 2) {
+          if (esFalloDeRed(err)) throw new Error('Se perdió la conexión con el servidor. Revisa tu internet e inténtalo de nuevo.');
+          throw err;
+        }
+        await new Promise(r => setTimeout(r, 800 * (intento + 1)));
+      }
+    }
+  }
+  function esc(t) {
+    return String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  function aviso(el, texto, tipo) { el.textContent = texto; el.className = 'mensaje ' + tipo; }
+  function limpiar(el) { el.textContent = ''; el.className = 'mensaje'; }
+  function siSesionTermino(err) {
+    if (/sesión terminó/.test(err.message)) { salir(); aviso($('#msg-login'), err.message, 'error'); return true; }
+    return false;
+  }
+
+  // Inicio de sesión
+  $('#form-login').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = $('#btn-login');
+    btn.disabled = true; limpiar($('#msg-login'));
+    try {
+      const r = await llamar('iniciarSesion', $('#usuario').value, $('#clave').value);
+      token = r.token;
+      $('#nombre-op').textContent = r.nombre;
+      $('#tab-historial').classList.toggle('oculto', r.rol !== 'ADMIN');
+      $('#clave').value = '';
+      $('#vista-login').classList.add('oculto');
+      $('#vista-app').classList.remove('oculto');
+      mostrar('operacion');
+      refresco = setInterval(() => { if (!$('[data-seccion="operacion"]').classList.contains('oculto')) cargarPatio(); }, 30000);
+    } catch (err) {
+      aviso($('#msg-login'), err.message, 'error');
+    } finally { btn.disabled = false; }
+  });
+
+  function salir() {
+    if (token) llamar('cerrarSesion', token).catch(() => {});
+    token = null; clearInterval(refresco);
+    $('#vista-app').classList.add('oculto');
+    $('#vista-login').classList.remove('oculto');
+  }
+  $('#btn-salir').addEventListener('click', salir);
+
+  // Navegación
+  document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => mostrar(b.dataset.vista)));
+  function mostrar(vista) {
+    document.querySelectorAll('nav button').forEach(b => b.setAttribute('aria-current', b.dataset.vista === vista ? 'page' : 'false'));
+    document.querySelectorAll('[data-seccion]').forEach(s => s.classList.toggle('oculto', s.dataset.seccion !== vista));
+    if (vista === 'operacion') { cargarPatio(); $('#placa').focus(); }
+    if (vista === 'novedades') cargarNovedades();
+    if (vista === 'historial') buscarHistorial();
+  }
+
+  // Entradas y salidas
+  async function cargarPatio() {
+    try {
+      const celdas = await llamar('obtenerOcupacion', token);
+      ['CARRO', 'MOTO'].forEach(tipo => {
+        const lista = celdas.filter(c => c.tipo === tipo);
+        const libres = lista.filter(c => c.estado === 'LIBRE').length;
+        $('#resumen-' + tipo).textContent = `${libres} de ${lista.length} libres`;
+        $('#fila-' + tipo).innerHTML = lista.map(c => c.estado === 'OCUPADA'
+          ? `<button type="button" class="celda ocupada" data-placa="${esc(c.placa)}" aria-label="Celda ${esc(c.codigo)}, ${esc(c.placa)}">
+               <b>${esc(c.codigo)}</b><span class="p">${esc(c.placa)}</span><small>Desde ${esc(c.entrada.slice(11))}</small></button>`
+          : `<div class="celda"><b>${esc(c.codigo)}</b><small class="lib">Libre</small></div>`).join('');
+      });
+    } catch (err) { if (!siSesionTermino(err)) aviso($('#msg-op'), err.message, 'error'); }
+  }
+
+  document.addEventListener('click', e => {
+    const c = e.target.closest('.celda.ocupada');
+    if (c) { $('#placa').value = c.dataset.placa; $('#placa').focus(); }
+  });
+
+  async function operar(tipo) {
+    const msg = $('#msg-op');
+    const botones = [$('#btn-entrada'), $('#btn-salida')];
+    botones.forEach(b => b.disabled = true);
+    try {
+      if (tipo === 'entrada') {
+        const r = await llamar('registrarEntrada', token, $('#placa').value, document.querySelector('input[name=tipo]:checked').value);
+        aviso(msg, `Entrada registrada: ${r.placa}${r.nuevo ? ' (vehículo nuevo, quedó registrado)' : ''} en la celda ${r.celda} a las ${r.hora.slice(11)}.`, 'ok');
+      } else {
+        const r = await llamar('registrarSalida', token, $('#placa').value);
+        aviso(msg, `Salida registrada: ${r.placa} dejó libre la celda ${r.celda}. Permanencia: ${r.permanencia}.`, 'ok');
+      }
+      $('#placa').value = '';
+      cargarPatio();
+    } catch (err) {
+      if (!siSesionTermino(err)) aviso(msg, err.message, 'error');
+      cargarPatio();
+    } finally {
+      botones.forEach(b => b.disabled = false);
+      $('#placa').focus();
+    }
+  }
+  $('#btn-entrada').addEventListener('click', () => operar('entrada'));
+  $('#btn-salida').addEventListener('click', () => operar('salida'));
+  $('#placa').addEventListener('input', e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
+  $('#placa').addEventListener('keydown', e => { if (e.key === 'Enter') operar('entrada'); });
+
+  // Novedades
+  async function cargarNovedades() {
+    try {
+      const lista = await llamar('listarNovedades', token);
+      $('#lista-nov').innerHTML = lista.length
+        ? lista.map(n => `<li><span class="chip">${esc(n.placa)}</span>${esc(n.descripcion)}<div class="meta">${esc(n.fecha)}, registró ${esc(n.operador)}</div></li>`).join('')
+        : '<li class="vacio">Aún no hay novedades registradas.</li>';
+    } catch (err) { siSesionTermino(err); }
+  }
+  $('#form-novedad').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = $('#btn-novedad'); btn.disabled = true;
+    try {
+      const r = await llamar('registrarNovedad', token, $('#nov-placa').value, $('#nov-desc').value);
+      aviso($('#msg-nov'), `Novedad guardada para ${r.placa}.`, 'ok');
+      $('#nov-placa').value = ''; $('#nov-desc').value = '';
+      cargarNovedades();
+    } catch (err) { if (!siSesionTermino(err)) aviso($('#msg-nov'), err.message, 'error'); }
+    finally { btn.disabled = false; }
+  });
+
+  // Historial
+  async function buscarHistorial() {
+    limpiar($('#msg-hist'));
+    try {
+      const filas = await llamar('consultarHistorial', token, { placa: $('#h-placa').value, desde: $('#h-desde').value, hasta: $('#h-hasta').value });
+      $('#tabla-hist').innerHTML = filas.length
+        ? filas.map(r => `<tr><td><span class="chip">${esc(r.placa)}</span></td><td>${esc(r.celda)}</td><td>${esc(r.entrada)}</td><td>${esc(r.salida) || '—'}</td><td class="estado-${esc(r.estado)}">${r.estado === 'ABIERTO' ? 'Dentro' : 'Salió'}</td><td>${esc(r.operador)}</td></tr>`).join('')
+        : '<tr><td colspan="6" class="vacio">No hay registros con esos filtros.</td></tr>';
+    } catch (err) { if (!siSesionTermino(err)) aviso($('#msg-hist'), err.message, 'error'); }
+  }
+  $('#form-historial').addEventListener('submit', e => { e.preventDefault(); buscarHistorial(); });
+
+</script>
+</body>
+</html>
