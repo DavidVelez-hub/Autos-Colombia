@@ -34,7 +34,7 @@
   header { background: var(--asfalto); color: #fff; display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.5rem; padding: .7rem 1.5rem; }
   header h1 { font-size: 1.55rem; }
   nav { display: flex; gap: .25rem; flex: 1; flex-wrap: wrap; }
-  nav button { background: none; border: 0; color: #C8CDD2; font-weight: 600; padding: .45rem .9rem; border-radius: 6px; cursor: pointer; }
+  nav button { background: none; border: 0; color: #C8CDD2; font-weight: 600; font-size: .95rem; padding: .4rem .65rem; border-radius: 6px; cursor: pointer; }
   nav button[aria-current="page"] { background: var(--placa); color: var(--tinta); }
   .quien { font-size: .9rem; color: #C8CDD2; display: flex; align-items: center; gap: .75rem; }
   .quien button { background: none; border: 1px solid #6A7076; color: #fff; border-radius: 6px; padding: .3rem .7rem; cursor: pointer; }
@@ -85,6 +85,42 @@
   .celda .p { align-self: flex-start; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .95rem; font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-weight: 700; background: var(--placa); color: var(--tinta); border-radius: 3px; padding: 0 .3rem; letter-spacing: .04em; }
   .celda small { font-size: .75rem; }
   .celda .lib { color: #9CD3AE; }
+  .celda.inactiva { background: repeating-linear-gradient(135deg, rgba(255,255,255,.06) 0 6px, transparent 6px 12px); }
+  .celda.inactiva small { color: #C8CDD2; }
+  .celda .res { color: var(--placa); font-size: .72rem; line-height: 1.2; }
+
+  /* Gestión (usuarios, celdas, operadores) */
+  .gestion { display: grid; grid-template-columns: minmax(300px, 400px) 1fr; gap: 1.5rem; align-items: start; }
+  @media (max-width: 900px) { .gestion { grid-template-columns: 1fr; } }
+  .dos { display: grid; grid-template-columns: 1fr 1fr; gap: 0 .75rem; }
+  .fila-acciones { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .25rem; }
+  .sub { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--borde); }
+  .sub h3, .panel h3 { font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: 1.15rem; margin: 0 0 .6rem; }
+  .sub .lista { margin-bottom: .9rem; }
+  .btn.mini { padding: .3rem .65rem; font-size: .85rem; border-width: 1px; }
+  .btn.peligro { border-color: var(--ocupada); color: var(--ocupada); }
+  .estado { font-weight: 600; font-size: .82rem; padding: .1rem .45rem; border-radius: 4px; white-space: nowrap; }
+  .estado.ACTIVO, .estado.LIBRE { background: rgba(63,138,88,.15); color: var(--libre); }
+  .estado.INACTIVO, .estado.OCUPADA { background: rgba(185,72,43,.12); color: var(--ocupada); }
+  .estado.INHABILITADA { background: rgba(91,97,104,.15); color: var(--suave); }
+  .estado.ADMIN { background: rgba(243,198,35,.3); color: var(--texto); }
+  .estado.OPERADOR { background: rgba(91,97,104,.15); color: var(--texto); }
+  tr.sel-fila { cursor: pointer; }
+  tr.sel-fila:hover td, tr.sel-fila.sel td { background: rgba(243,198,35,.16); }
+  .lista-v li { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+  select.campo { appearance: auto; }
+  .check { display: flex; align-items: center; gap: .5rem; font-weight: 600; margin: 0 0 1rem; }
+  .check input { width: 1.1rem; height: 1.1rem; accent-color: var(--asfalto); }
+  .mapa-admin { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: .5rem; }
+  .c-admin { border: 2px solid var(--borde); border-radius: 8px; padding: .5rem; background: var(--superficie); color: var(--texto); text-align: left; cursor: pointer; min-height: 84px; display: flex; flex-direction: column; gap: .2rem; }
+  .c-admin b { font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: 1.15rem; }
+  .c-admin .estado { align-self: flex-start; font-size: .76rem; }
+  .c-admin small { font-size: .78rem; color: var(--suave); }
+  .c-admin.OCUPADA { border-color: var(--ocupada); }
+  .c-admin.INHABILITADA { border-style: dashed; opacity: .75; }
+  .c-admin.sel { outline: 3px solid var(--placa); outline-offset: 1px; }
+  .resumen { display: flex; gap: 1rem; flex-wrap: wrap; color: var(--suave); font-size: .92rem; margin: 0 0 1rem; }
+  .resumen b { color: var(--texto); }
 
   /* Tablas y listas */
   .filtros { display: flex; flex-wrap: wrap; gap: .75rem; align-items: end; margin-bottom: 1rem; }
@@ -127,7 +163,10 @@
     <nav>
       <button data-vista="operacion" aria-current="page">Entradas y salidas</button>
       <button data-vista="novedades">Novedades</button>
-      <button data-vista="historial" id="tab-historial">Historial</button>
+      <button data-vista="usuarios">Clientes</button>
+      <button data-vista="celdas" class="solo-admin">Celdas</button>
+      <button data-vista="operadores" class="solo-admin">Operadores</button>
+      <button data-vista="historial" class="solo-admin">Historial</button>
     </nav>
     <div class="quien"><span id="nombre-op"></span><button id="btn-salir">Cerrar sesión</button></div>
   </header>
@@ -180,6 +219,110 @@
       </div>
     </section>
 
+
+    <section data-seccion="usuarios" class="gestion oculto">
+      <div class="panel">
+        <form id="form-usuario">
+          <h2 id="titulo-usuario">Nuevo cliente</h2>
+          <input type="hidden" id="usu-id">
+          <div class="dos">
+            <div><label for="usu-doc">Documento</label><input class="campo" id="usu-doc" inputmode="numeric" required></div>
+            <div><label for="usu-tel">Teléfono</label><input class="campo" id="usu-tel" inputmode="tel"></div>
+          </div>
+          <label for="usu-nombre">Nombre completo</label>
+          <input class="campo" id="usu-nombre" required>
+          <label for="usu-email">Correo</label>
+          <input class="campo" id="usu-email" type="email">
+          <div class="fila-acciones">
+            <button class="btn principal" id="btn-usuario">Guardar cliente</button>
+            <button type="button" class="btn" id="btn-nuevo-usu">Nuevo</button>
+            <button type="button" class="btn peligro oculto solo-admin-btn" id="btn-estado-usu">Inactivar</button>
+          </div>
+          <div class="mensaje" id="msg-usu" role="status"></div>
+        </form>
+        <div id="detalle-usu" class="sub oculto">
+          <h3>Vehículos del cliente</h3>
+          <ul class="lista lista-v" id="usu-vehiculos"></ul>
+          <form id="form-vehiculo">
+            <div class="dos">
+              <div><label for="veh-placa">Placa</label><input class="campo" id="veh-placa" maxlength="8" placeholder="ABC123" required></div>
+              <div><label for="veh-tipo">Tipo</label><select class="campo" id="veh-tipo"><option value="CARRO">Carro</option><option value="MOTO">Moto</option></select></div>
+              <div><label for="veh-marca">Marca</label><input class="campo" id="veh-marca"></div>
+              <div><label for="veh-color">Color</label><input class="campo" id="veh-color"></div>
+            </div>
+            <button class="btn principal" id="btn-vehiculo">Asociar vehículo</button>
+            <div class="mensaje" id="msg-veh" role="status"></div>
+          </form>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Clientes del parqueadero</h2>
+        <input class="campo" id="usu-buscar" placeholder="Buscar por nombre, documento o placa" aria-label="Buscar cliente">
+        <div class="tabla"><table>
+          <thead><tr><th>Cliente</th><th>Documento</th><th>Placas</th><th>Estado</th></tr></thead>
+          <tbody id="tabla-usu"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <section data-seccion="celdas" class="gestion oculto">
+      <div>
+        <form class="panel" id="form-crear-celda">
+          <h2>Registrar celda</h2>
+          <div class="dos">
+            <div><label for="nc-codigo">Código</label><input class="campo" id="nc-codigo" maxlength="6" placeholder="C21" required></div>
+            <div><label for="nc-tipo">Tipo</label><select class="campo" id="nc-tipo"><option value="CARRO">Carro</option><option value="MOTO">Moto</option></select></div>
+          </div>
+          <button class="btn principal" id="btn-crear-celda">Registrar celda</button>
+          <div class="mensaje" id="msg-nc" role="status"></div>
+        </form>
+        <div class="panel oculto" id="panel-celda" style="margin-top:1rem">
+          <h2>Celda <span id="cel-codigo"></span></h2>
+          <p class="ayuda" id="cel-info"></p>
+          <div class="fila-acciones">
+            <button type="button" class="btn" id="btn-tipo-celda">Cambiar tipo</button>
+            <button type="button" class="btn peligro" id="btn-estado-celda">Inhabilitar</button>
+          </div>
+          <div class="mensaje" id="msg-cel" role="status"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Celdas del parqueadero</h2>
+        <div class="filtros" style="margin-bottom:.5rem">
+          <div><label for="fc-tipo">Tipo</label><select class="campo" id="fc-tipo"><option value="">Todos</option><option value="CARRO">Carro</option><option value="MOTO">Moto</option></select></div>
+          <div><label for="fc-estado">Estado</label><select class="campo" id="fc-estado"><option value="">Todos</option><option value="LIBRE">Libre</option><option value="OCUPADA">Ocupada</option><option value="INHABILITADA">Inhabilitada</option></select></div>
+        </div>
+        <p class="resumen" id="cel-resumen"></p>
+        <div class="mapa-admin" id="mapa-admin"></div>
+      </div>
+    </section>
+
+    <section data-seccion="operadores" class="gestion oculto">
+      <form class="panel" id="form-operador">
+        <h2 id="titulo-op">Nuevo operador</h2>
+        <input type="hidden" id="op-id">
+        <label for="op-usuario">Usuario</label><input class="campo" id="op-usuario" autocomplete="off" required>
+        <label for="op-nombre">Nombre</label><input class="campo" id="op-nombre" required>
+        <label for="op-rol">Rol</label>
+        <select class="campo" id="op-rol"><option value="OPERADOR">Operador</option><option value="ADMIN">Administrador</option></select>
+        <label for="op-clave" id="lbl-op-clave">Contraseña</label>
+        <input class="campo" id="op-clave" type="password" autocomplete="new-password">
+        <div class="fila-acciones">
+          <button class="btn principal" id="btn-operador">Guardar</button>
+          <button type="button" class="btn" id="btn-nuevo-op">Nuevo</button>
+          <button type="button" class="btn oculto" id="btn-clave-op">Restablecer contraseña</button>
+          <button type="button" class="btn peligro oculto" id="btn-estado-op">Desactivar</button>
+        </div>
+        <div class="mensaje" id="msg-op-g" role="status"></div>
+      </form>
+      <div class="panel">
+        <h2>Usuarios del sistema</h2>
+        <div class="tabla"><table>
+          <thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Estado</th></tr></thead>
+          <tbody id="tabla-op"></tbody>
+        </table></div>
+      </div>
+    </section>
 
     <section data-seccion="historial" class="panel oculto">
       <h2>Historial de entradas y salidas</h2>
@@ -244,7 +387,8 @@
       const r = await llamar('iniciarSesion', $('#usuario').value, $('#clave').value);
       token = r.token;
       $('#nombre-op').textContent = r.nombre;
-      $('#tab-historial').classList.toggle('oculto', r.rol !== 'ADMIN');
+      esAdmin = r.rol === 'ADMIN';
+      document.querySelectorAll('.solo-admin').forEach(b => b.classList.toggle('oculto', !esAdmin));
       $('#clave').value = '';
       $('#vista-login').classList.add('oculto');
       $('#vista-app').classList.remove('oculto');
@@ -271,6 +415,9 @@
     if (vista === 'operacion') { cargarPatio(); $('#placa').focus(); }
     if (vista === 'novedades') cargarNovedades();
     if (vista === 'historial') buscarHistorial();
+    if (vista === 'usuarios') cargarUsuarios();
+    if (vista === 'celdas') cargarCeldas();
+    if (vista === 'operadores') cargarOperadores();
   }
 
   // Entradas y salidas
@@ -284,7 +431,9 @@
         $('#fila-' + tipo).innerHTML = lista.map(c => c.estado === 'OCUPADA'
           ? `<button type="button" class="celda ocupada" data-placa="${esc(c.placa)}" aria-label="Celda ${esc(c.codigo)}, ${esc(c.placa)}">
                <b>${esc(c.codigo)}</b><span class="p">${esc(c.placa)}</span><small>Desde ${esc(c.entrada.slice(11))}</small></button>`
-          : `<div class="celda"><b>${esc(c.codigo)}</b><small class="lib">Libre</small></div>`).join('');
+          : c.estado === 'INHABILITADA'
+            ? `<div class="celda inactiva"><b>${esc(c.codigo)}</b><small>Inhabilitada</small></div>`
+            : `<div class="celda"><b>${esc(c.codigo)}</b><small class="lib">Libre</small></div>`).join('');
       });
     } catch (err) { if (!siSesionTermino(err)) aviso($('#msg-op'), err.message, 'error'); }
   }
@@ -354,6 +503,169 @@
   }
   $('#form-historial').addEventListener('submit', e => { e.preventDefault(); buscarHistorial(); });
 
+  // ===== Gestión de usuarios (clientes) =====
+  let clientes = [], usuarioSel = null, esAdmin = false;
+  function pintarUsuarios() {
+    const q = $('#usu-buscar').value.trim().toUpperCase();
+    const qp = q.replace(/[^A-Z0-9]/g, '');
+    const lista = clientes.filter(c => !q || c.nombre.toUpperCase().includes(q) || c.documento.includes(qp) || c.vehiculos.some(v => v.placa.includes(qp)));
+    $('#tabla-usu').innerHTML = lista.length
+      ? lista.map(c => `<tr class="sel-fila${c.id === usuarioSel ? ' sel' : ''}" data-id="${esc(c.id)}" tabindex="0"><td>${esc(c.nombre)}</td><td>${esc(c.documento)}</td>
+          <td>${c.vehiculos.map(v => `<span class="chip">${esc(v.placa)}</span>`).join('') || '—'}</td><td><span class="estado ${esc(c.estado)}">${c.estado === 'ACTIVO' ? 'Activo' : 'Inactivo'}</span></td></tr>`).join('')
+      : '<tr><td colspan="4" class="vacio">No hay clientes que coincidan.</td></tr>';
+  }
+  async function cargarUsuarios() {
+    try { clientes = await llamar('listarClientes', token); pintarUsuarios(); if (usuarioSel) abrirUsuario(usuarioSel); }
+    catch (err) { if (!siSesionTermino(err)) aviso($('#msg-usu'), err.message, 'error'); }
+  }
+  function nuevoUsuario() {
+    usuarioSel = null;
+    ['#usu-id', '#usu-doc', '#usu-nombre', '#usu-tel', '#usu-email'].forEach(s => $(s).value = '');
+    $('#titulo-usuario').textContent = 'Nuevo cliente';
+    $('#detalle-usu').classList.add('oculto'); $('#btn-estado-usu').classList.add('oculto');
+    limpiar($('#msg-usu')); pintarUsuarios(); $('#usu-doc').focus();
+  }
+  function abrirUsuario(id) {
+    const c = clientes.find(x => x.id === id); if (!c) return;
+    usuarioSel = id;
+    $('#usu-id').value = c.id; $('#usu-doc').value = c.documento; $('#usu-nombre').value = c.nombre;
+    $('#usu-tel').value = c.telefono; $('#usu-email').value = c.email;
+    $('#titulo-usuario').textContent = c.nombre;
+    $('#btn-estado-usu').textContent = c.estado === 'ACTIVO' ? 'Inactivar' : 'Activar';
+    $('#btn-estado-usu').classList.toggle('oculto', !esAdmin);
+    $('#usu-vehiculos').innerHTML = c.vehiculos.length
+      ? c.vehiculos.map(v => `<li><span><span class="chip">${esc(v.placa)}</span>${v.tipo === 'MOTO' ? 'Moto' : 'Carro'} ${esc(v.marca)} ${esc(v.color)}</span><button type="button" class="btn mini" data-quitar="${esc(v.placa)}">Desasociar</button></li>`).join('')
+      : '<li class="vacio">Sin vehículos asociados.</li>';
+    $('#detalle-usu').classList.remove('oculto');
+    pintarUsuarios();
+  }
+  $('#usu-buscar').addEventListener('input', pintarUsuarios);
+  $('#btn-nuevo-usu').addEventListener('click', nuevoUsuario);
+  $('#tabla-usu').addEventListener('click', e => { const tr = e.target.closest('tr.sel-fila'); if (tr) { limpiar($('#msg-usu')); abrirUsuario(tr.dataset.id); } });
+  $('#form-usuario').addEventListener('submit', async e => {
+    e.preventDefault();
+    try {
+      const r = await llamar('guardarCliente', token, { id: $('#usu-id').value, documento: $('#usu-doc').value, nombre: $('#usu-nombre').value, telefono: $('#usu-tel').value, email: $('#usu-email').value });
+      aviso($('#msg-usu'), $('#usu-id').value ? 'Datos actualizados.' : 'Cliente registrado. Ahora puedes asociarle vehículos.', 'ok');
+      usuarioSel = r.id; await cargarUsuarios();
+    } catch (err) { if (!siSesionTermino(err)) aviso($('#msg-usu'), err.message, 'error'); }
+  });
+  $('#btn-estado-usu').addEventListener('click', async () => {
+    const c = clientes.find(x => x.id === usuarioSel);
+    try { await llamar('cambiarEstadoCliente', token, usuarioSel, c.estado !== 'ACTIVO'); aviso($('#msg-usu'), c.estado === 'ACTIVO' ? 'Cliente inactivado.' : 'Cliente activado.', 'ok'); await cargarUsuarios(); }
+    catch (err) { if (!siSesionTermino(err)) aviso($('#msg-usu'), err.message, 'error'); }
+  });
+  $('#veh-placa').addEventListener('input', e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
+  $('#form-vehiculo').addEventListener('submit', async e => {
+    e.preventDefault();
+    try {
+      const r = await llamar('asociarVehiculo', token, usuarioSel, { placa: $('#veh-placa').value, tipo: $('#veh-tipo').value, marca: $('#veh-marca').value, color: $('#veh-color').value });
+      aviso($('#msg-veh'), `${r.placa} asociado${r.existia ? ' (ya existía en el sistema)' : ''}.`, 'ok');
+      ['#veh-placa', '#veh-marca', '#veh-color'].forEach(s => $(s).value = '');
+      await cargarUsuarios();
+    } catch (err) { if (!siSesionTermino(err)) aviso($('#msg-veh'), err.message, 'error'); }
+  });
+  $('#usu-vehiculos').addEventListener('click', async e => {
+    const b = e.target.closest('[data-quitar]'); if (!b) return;
+    try { await llamar('desasociarVehiculo', token, b.dataset.quitar); aviso($('#msg-veh'), `${b.dataset.quitar} desasociado.`, 'ok'); await cargarUsuarios(); }
+    catch (err) { if (!siSesionTermino(err)) aviso($('#msg-veh'), err.message, 'error'); }
+  });
+
+  // ===== Gestión de celdas =====
+  let celdas = [], celdaSel = null;
+  const nombreEstado = { LIBRE: 'Libre', OCUPADA: 'Ocupada', INHABILITADA: 'Inhabilitada' };
+  function pintarCeldas() {
+    const ft = $('#fc-tipo').value, fe = $('#fc-estado').value;
+    const cuenta = (t, e) => celdas.filter(c => c.tipo === t && c.estado === e).length;
+    $('#cel-resumen').innerHTML = ['CARRO', 'MOTO'].map(t => `<span><b>${t === 'CARRO' ? 'Carros' : 'Motos'}:</b> ${cuenta(t, 'LIBRE')} libres · ${cuenta(t, 'OCUPADA')} ocupadas · ${cuenta(t, 'INHABILITADA')} inhabilitadas</span>`).join('');
+    const lista = celdas.filter(c => (!ft || c.tipo === ft) && (!fe || c.estado === fe));
+    $('#mapa-admin').innerHTML = lista.length
+      ? lista.map(c => `<button type="button" class="c-admin ${c.estado}${c.codigo === celdaSel ? ' sel' : ''}" data-codigo="${esc(c.codigo)}"><b>${esc(c.codigo)}</b><small>${c.tipo === 'MOTO' ? 'Moto' : 'Carro'}</small><span class="estado ${c.estado}">${nombreEstado[c.estado]}</span>${c.placa ? `<small>${esc(c.placa)}</small>` : ''}</button>`).join('')
+      : '<p class="vacio">No hay celdas con ese filtro.</p>';
+  }
+  async function cargarCeldas() {
+    try { celdas = await llamar('obtenerOcupacion', token); pintarCeldas(); if (celdaSel) abrirCelda(celdaSel); }
+    catch (err) { if (!siSesionTermino(err)) aviso($('#msg-nc'), err.message, 'error'); }
+  }
+  function abrirCelda(codigo) {
+    const c = celdas.find(x => x.codigo === codigo); if (!c) return;
+    celdaSel = codigo;
+    $('#cel-codigo').textContent = c.codigo;
+    $('#cel-info').textContent = `${c.tipo === 'MOTO' ? 'Moto' : 'Carro'} · ${nombreEstado[c.estado]}${c.placa ? ' con ' + c.placa : ''}`;
+    $('#btn-tipo-celda').textContent = c.tipo === 'MOTO' ? 'Cambiar a carro' : 'Cambiar a moto';
+    $('#btn-estado-celda').textContent = c.estado === 'INHABILITADA' ? 'Habilitar' : 'Inhabilitar';
+    $('#btn-estado-celda').classList.toggle('peligro', c.estado !== 'INHABILITADA');
+    $('#btn-tipo-celda').disabled = $('#btn-estado-celda').disabled = c.estado === 'OCUPADA';
+    $('#panel-celda').classList.remove('oculto');
+    pintarCeldas();
+  }
+  ['#fc-tipo', '#fc-estado'].forEach(s => $(s).addEventListener('change', pintarCeldas));
+  $('#mapa-admin').addEventListener('click', e => { const b = e.target.closest('[data-codigo]'); if (b) { limpiar($('#msg-cel')); abrirCelda(b.dataset.codigo); } });
+  $('#nc-codigo').addEventListener('input', e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
+  $('#form-crear-celda').addEventListener('submit', async e => {
+    e.preventDefault();
+    try { const r = await llamar('crearCelda', token, $('#nc-codigo').value, $('#nc-tipo').value); aviso($('#msg-nc'), `Celda ${r.codigo} registrada.`, 'ok'); $('#nc-codigo').value = ''; await cargarCeldas(); }
+    catch (err) { if (!siSesionTermino(err)) aviso($('#msg-nc'), err.message, 'error'); }
+  });
+  $('#btn-tipo-celda').addEventListener('click', async () => {
+    const c = celdas.find(x => x.codigo === celdaSel);
+    try { await llamar('cambiarTipoCelda', token, celdaSel, c.tipo === 'MOTO' ? 'CARRO' : 'MOTO'); aviso($('#msg-cel'), 'Tipo actualizado.', 'ok'); await cargarCeldas(); }
+    catch (err) { if (!siSesionTermino(err)) aviso($('#msg-cel'), err.message, 'error'); }
+  });
+  $('#btn-estado-celda').addEventListener('click', async () => {
+    const c = celdas.find(x => x.codigo === celdaSel);
+    try { await llamar('cambiarEstadoCelda', token, celdaSel, c.estado === 'INHABILITADA'); aviso($('#msg-cel'), c.estado === 'INHABILITADA' ? 'Celda habilitada.' : 'Celda inhabilitada.', 'ok'); await cargarCeldas(); }
+    catch (err) { if (!siSesionTermino(err)) aviso($('#msg-cel'), err.message, 'error'); }
+  });
+
+  // ===== Gestión de operadores =====
+  let operadores = [], opSel = null;
+  function pintarOperadores() {
+    $('#tabla-op').innerHTML = operadores.map(o => `<tr class="sel-fila${o.id === opSel ? ' sel' : ''}" data-id="${esc(o.id)}" tabindex="0"><td>${esc(o.nombre)}</td><td>${esc(o.usuario)}</td>
+      <td><span class="estado ${o.rol}">${o.rol === 'ADMIN' ? 'Administrador' : 'Operador'}</span></td><td><span class="estado ${o.activo ? 'ACTIVO' : 'INACTIVO'}">${o.activo ? 'Activo' : 'Inactivo'}</span></td></tr>`).join('');
+  }
+  async function cargarOperadores() {
+    try { operadores = await llamar('listarOperadores', token); pintarOperadores(); }
+    catch (err) { if (!siSesionTermino(err)) aviso($('#msg-op-g'), err.message, 'error'); }
+  }
+  function nuevoOperador() {
+    opSel = null;
+    ['#op-id', '#op-usuario', '#op-nombre', '#op-clave'].forEach(s => $(s).value = '');
+    $('#op-rol').value = 'OPERADOR'; $('#titulo-op').textContent = 'Nuevo operador';
+    $('#lbl-op-clave').classList.remove('oculto'); $('#op-clave').classList.remove('oculto');
+    $('#btn-clave-op').classList.add('oculto'); $('#btn-estado-op').classList.add('oculto');
+    limpiar($('#msg-op-g')); pintarOperadores();
+  }
+  $('#btn-nuevo-op').addEventListener('click', nuevoOperador);
+  $('#tabla-op').addEventListener('click', e => {
+    const tr = e.target.closest('tr.sel-fila'); if (!tr) return;
+    const o = operadores.find(x => x.id === tr.dataset.id); opSel = o.id;
+    $('#op-id').value = o.id; $('#op-usuario').value = o.usuario; $('#op-nombre').value = o.nombre; $('#op-rol').value = o.rol;
+    $('#titulo-op').textContent = o.nombre;
+    $('#lbl-op-clave').classList.add('oculto'); $('#op-clave').classList.add('oculto');
+    $('#btn-clave-op').classList.remove('oculto'); $('#btn-estado-op').classList.remove('oculto');
+    $('#btn-estado-op').textContent = o.activo ? 'Desactivar' : 'Activar';
+    limpiar($('#msg-op-g')); pintarOperadores();
+  });
+  $('#form-operador').addEventListener('submit', async e => {
+    e.preventDefault();
+    try {
+      await llamar('guardarOperador', token, { id: $('#op-id').value, usuario: $('#op-usuario').value, nombre: $('#op-nombre').value, rol: $('#op-rol').value, clave: $('#op-clave').value });
+      aviso($('#msg-op-g'), $('#op-id').value ? 'Datos actualizados.' : 'Operador creado. Ya puede iniciar sesión.', 'ok');
+      $('#op-clave').value = ''; await cargarOperadores();
+    } catch (err) { if (!siSesionTermino(err)) aviso($('#msg-op-g'), err.message, 'error'); }
+  });
+  $('#btn-estado-op').addEventListener('click', async () => {
+    const o = operadores.find(x => x.id === opSel);
+    try { await llamar('cambiarEstadoOperador', token, opSel, !o.activo); aviso($('#msg-op-g'), o.activo ? 'Operador desactivado.' : 'Operador activado.', 'ok'); await cargarOperadores(); $('#btn-estado-op').textContent = o.activo ? 'Activar' : 'Desactivar'; }
+    catch (err) { if (!siSesionTermino(err)) aviso($('#msg-op-g'), err.message, 'error'); }
+  });
+  $('#btn-clave-op').addEventListener('click', async () => {
+    const clave = prompt('Nueva contraseña para ' + $('#op-nombre').value + ':');
+    if (!clave) return;
+    try { await llamar('restablecerClave', token, opSel, clave); aviso($('#msg-op-g'), 'Contraseña actualizada.', 'ok'); }
+    catch (err) { if (!siSesionTermino(err)) aviso($('#msg-op-g'), err.message, 'error'); }
+  });
 </script>
 </body>
 </html>

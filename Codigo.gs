@@ -1,4 +1,4 @@
-// ===== Autos Colombia – Iteración 1 =====
+// ===== Autos Colombia – Iteraciones 1 y 2 =====
 
 // ----- Code.js -----
 /**
@@ -6,13 +6,13 @@
  */
 
 function doGet() {
-  if (!PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID')) setup();
+  if (PropertiesService.getScriptProperties().getProperty('VERSION_ESQUEMA') !== VERSION_ESQUEMA) setup();
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('Autos Colombia – Parqueadero')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-/** Crea el Spreadsheet con sus hojas, las celdas y los operadores iniciales. */
+/** Crea o actualiza el Spreadsheet: hojas, columnas nuevas, celdas y operadores iniciales. */
 function setup() {
   const props = PropertiesService.getScriptProperties();
   const id = props.getProperty('SPREADSHEET_ID');
@@ -27,6 +27,7 @@ function setup() {
       sh.getRange(1, 1, 1, ESQUEMA[nombre].length).setFontWeight('bold');
     }
   });
+  migrarColumnas_(ss);
   ['Hoja 1', 'Sheet1'].forEach(n => {
     const h = ss.getSheetByName(n);
     if (h) ss.deleteSheet(h);
@@ -42,6 +43,7 @@ function setup() {
     crearOperador_('admin', 'Administrador', 'ADMIN', 'Admin123*');
     crearOperador_('operador', 'Operador de turno', 'OPERADOR', 'Operador123*');
   }
+  props.setProperty('VERSION_ESQUEMA', VERSION_ESQUEMA);
   Logger.log('Base de datos lista: ' + ss.getUrl());
 }
 
@@ -107,7 +109,13 @@ function registrarEntrada(token, textoPlaca, tipoElegido) {
 
     const vehiculo = leer_('Vehiculos').find(v => String(v.placa).trim().toUpperCase() === placa);
     const tipo = String(vehiculo ? vehiculo.tipo : tipoElegido).trim().toUpperCase() === 'MOTO' ? 'MOTO' : 'CARRO';
-    const celda = leer_('Celdas').find(c => c.tipo === tipo && c.estado === 'LIBRE');
+    const dueno = vehiculo && vehiculo.usuario_id ? leer_('Usuarios').find(u => u.id === vehiculo.usuario_id) : null;
+    if (dueno && dueno.estado === 'INACTIVO') throw new Error(`El usuario ${dueno.nombre} está inactivo; ${placa} no puede ingresar.`);
+
+    // Primero la celda fija del usuario; si no tiene o está ocupada, una celda libre sin asignar.
+    const celdas = leer_('Celdas');
+    const celda = (dueno && celdas.find(c => c.usuario_id === dueno.id && c.tipo === tipo && c.estado === 'LIBRE')) ||
+                  celdas.find(c => c.tipo === tipo && c.estado === 'LIBRE' && !c.usuario_id);
     if (!celda) throw new Error(`No hay celdas libres para ${tipo === 'MOTO' ? 'motos' : 'carros'}.`);
     if (!vehiculo) insertar_('Vehiculos', { placa, tipo });
 
@@ -140,11 +148,12 @@ function registrarSalida(token, textoPlaca) {
 
 function obtenerOcupacion(token) {
   sesion_(token);
-  const abiertos = {};
+  const abiertos = {}, nombres = {};
   leer_('Registros').filter(r => r.estado === 'ABIERTO').forEach(r => { abiertos[r.celda] = r; });
-  return leer_('Celdas').map(c => {
+  leer_('Usuarios').forEach(u => { nombres[u.id] = u.nombre; });
+  return leer_('Celdas').sort((a, b) => String(a.codigo).localeCompare(String(b.codigo))).map(c => {
     const r = abiertos[c.codigo];
-    return { codigo: c.codigo, tipo: c.tipo, estado: c.estado,
+    return { codigo: c.codigo, tipo: c.tipo, estado: c.estado, asignada: c.usuario_id ? (nombres[c.usuario_id] || 'Asignada') : '',
       placa: r ? String(r.placa) : '', entrada: r ? fmt_(r.fecha_entrada) : '' };
   });
 }
@@ -191,6 +200,192 @@ function listarNovedades(token) {
     .map(n => ({ placa: String(n.placa), descripcion: n.descripcion, fecha: fmt_(n.fecha), operador: nombres[n.operador] || '' }));
 }
 
+// ----- UsuariosService.js -----
+/**
+ * Iteración 2 – Gestión de usuarios (clientes del parqueadero) y sus vehículos.
+ */
+
+function buscarCliente_(id) {
+  const cliente = leer_('Usuarios').find(u => u.id === id);
+  if (!cliente) throw new Error('El cliente no existe.');
+  return cliente;
+}
+
+/** RF11: clientes con sus placas y estado. */
+function listarClientes(token) {
+  sesion_(token);
+  const vehiculos = leer_('Vehiculos');
+  return leer_('Usuarios').map(u => ({
+    id: u.id, documento: String(u.documento), nombre: u.nombre,
+    telefono: String(u.telefono), email: u.email, estado: u.estado || 'ACTIVO',
+    vehiculos: vehiculos.filter(v => v.usuario_id === u.id)
+      .map(v => ({ placa: String(v.placa), tipo: v.tipo, marca: v.marca, color: v.color }))
+  })).sort((a, b) => a.nombre.localeCompare(b.nombre));
+}
+
+/** RF10 y RF12: crea o actualiza un cliente. El documento no se repite. */
+function guardarCliente(token, datos) {
+  sesion_(token);
+  const documento = String(datos.documento || '').replace(/\D/g, '');
+  const nombre = String(datos.nombre || '').trim();
+  if (!documento || !nombre) throw new Error('El documento y el nombre son obligatorios.');
+
+  return conBloqueo_(() => {
+    const usuarios = leer_('Usuarios');
+    const otro = usuarios.find(u => String(u.documento) === documento && u.id !== datos.id);
+    if (otro) throw new Error(`El documento ${documento} ya pertenece a ${otro.nombre}.`);
+
+    const campos = { documento, nombre, telefono: String(datos.telefono || '').trim(), email: String(datos.email || '').trim() };
+    if (datos.id) {
+      actualizar_('Usuarios', buscarCliente_(datos.id)._fila, campos);
+      return { id: datos.id };
+    }
+    const id = 'U' + nuevoId_().slice(1);
+    insertar_('Usuarios', Object.assign({ id, estado: 'ACTIVO', fecha_registro: new Date() }, campos));
+    return { id };
+  });
+}
+
+/** RF13: activa o inactiva un cliente (solo administrador). */
+function cambiarEstadoCliente(token, id, activo) {
+  sesion_(token, 'ADMIN');
+  actualizar_('Usuarios', buscarCliente_(id)._fila, { estado: activo ? 'ACTIVO' : 'INACTIVO' });
+  return { id, estado: activo ? 'ACTIVO' : 'INACTIVO' };
+}
+
+/** RF14: asocia un vehículo nuevo, o uno sin dueño, a un cliente. */
+function asociarVehiculo(token, clienteId, datos) {
+  sesion_(token);
+  const placa = placa_(datos.placa);
+  const tipo = datos.tipo === 'MOTO' ? 'MOTO' : 'CARRO';
+
+  return conBloqueo_(() => {
+    const cliente = buscarCliente_(clienteId);
+    const vehiculo = leer_('Vehiculos').find(v => String(v.placa) === placa);
+    const campos = { usuario_id: cliente.id, marca: String(datos.marca || '').trim(), color: String(datos.color || '').trim() };
+    if (vehiculo && vehiculo.usuario_id && vehiculo.usuario_id !== cliente.id) {
+      throw new Error(`La placa ${placa} ya está asociada a otro cliente.`);
+    }
+    if (vehiculo) actualizar_('Vehiculos', vehiculo._fila, campos);
+    else insertar_('Vehiculos', Object.assign({ placa, tipo }, campos));
+    return { placa, existia: !!vehiculo };
+  });
+}
+
+/** RF15: quita el dueño del vehículo, si no está dentro. El vehículo se conserva para el historial. */
+function desasociarVehiculo(token, textoPlaca) {
+  sesion_(token);
+  const placa = placa_(textoPlaca);
+  return conBloqueo_(() => {
+    if (registroAbierto_(placa)) throw new Error(`${placa} está dentro del parqueadero. Registra su salida primero.`);
+    const vehiculo = leer_('Vehiculos').find(v => String(v.placa) === placa);
+    actualizar_('Vehiculos', vehiculo._fila, { usuario_id: '' });
+    return { placa };
+  });
+}
+
+// ----- CeldasService.js -----
+/**
+ * Iteración 2 – Gestión de celdas.
+ */
+
+function buscarCelda_(codigo) {
+  const celda = leer_('Celdas').find(c => c.codigo === codigo);
+  if (!celda) throw new Error(`La celda ${codigo} no existe.`);
+  return celda;
+}
+
+/** RF17: registra una celda nueva con código único. */
+function crearCelda(token, codigoTexto, tipoTexto) {
+  sesion_(token, 'ADMIN');
+  const codigo = String(codigoTexto || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!codigo) throw new Error('Escribe el código de la celda.');
+  const tipo = tipoTexto === 'MOTO' ? 'MOTO' : 'CARRO';
+
+  return conBloqueo_(() => {
+    if (leer_('Celdas').some(c => c.codigo === codigo)) throw new Error(`Ya existe la celda ${codigo}.`);
+    insertar_('Celdas', { codigo, tipo, estado: 'LIBRE' });
+    return { codigo, tipo };
+  });
+}
+
+/** RF19: cambia el tipo de una celda libre. */
+function cambiarTipoCelda(token, codigo, tipoTexto) {
+  sesion_(token, 'ADMIN');
+  const tipo = tipoTexto === 'MOTO' ? 'MOTO' : 'CARRO';
+  return conBloqueo_(() => {
+    const celda = buscarCelda_(codigo);
+    if (celda.estado === 'OCUPADA') throw new Error(`La celda ${codigo} está ocupada.`);
+    actualizar_('Celdas', celda._fila, { tipo });
+    return { codigo, tipo };
+  });
+}
+
+/** RF20: inhabilita o habilita una celda que no esté ocupada. */
+function cambiarEstadoCelda(token, codigo, habilitar) {
+  sesion_(token, 'ADMIN');
+  return conBloqueo_(() => {
+    const celda = buscarCelda_(codigo);
+    if (celda.estado === 'OCUPADA') throw new Error(`La celda ${codigo} está ocupada.`);
+    const estado = habilitar ? 'LIBRE' : 'INHABILITADA';
+    actualizar_('Celdas', celda._fila, { estado });
+    return { codigo, estado };
+  });
+}
+
+// ----- OperadoresService.js -----
+/**
+ * Iteración 2 – Gestión de usuarios del sistema (operadores y administradores).
+ */
+
+function buscarOperador_(id) {
+  const op = leer_('Operadores').find(o => o.id === id);
+  if (!op) throw new Error('El operador no existe.');
+  return op;
+}
+
+function listarOperadores(token) {
+  sesion_(token, 'ADMIN');
+  return leer_('Operadores').map(o => ({ id: o.id, usuario: o.usuario, nombre: o.nombre, rol: o.rol, activo: o.activo === true }));
+}
+
+/** RF16: crea un operador o actualiza su nombre y rol. */
+function guardarOperador(token, datos) {
+  sesion_(token, 'ADMIN');
+  const usuario = String(datos.usuario || '').trim().toLowerCase();
+  const nombre = String(datos.nombre || '').trim();
+  const rol = datos.rol === 'ADMIN' ? 'ADMIN' : 'OPERADOR';
+  if (!usuario || !nombre) throw new Error('El usuario y el nombre son obligatorios.');
+
+  return conBloqueo_(() => {
+    if (leer_('Operadores').some(o => o.usuario === usuario && o.id !== datos.id)) throw new Error(`El usuario ${usuario} ya existe.`);
+    if (datos.id) {
+      actualizar_('Operadores', buscarOperador_(datos.id)._fila, { usuario, nombre, rol });
+      return { id: datos.id };
+    }
+    if (!datos.clave) throw new Error('Escribe una contraseña para el nuevo operador.');
+    crearOperador_(usuario, nombre, rol, String(datos.clave));
+    return { usuario };
+  });
+}
+
+/** RF16: activa o desactiva un operador. Nadie puede desactivarse a sí mismo. */
+function cambiarEstadoOperador(token, id, activo) {
+  const yo = sesion_(token, 'ADMIN');
+  if (id === yo.id && !activo) throw new Error('No puedes desactivar tu propio usuario.');
+  actualizar_('Operadores', buscarOperador_(id)._fila, { activo: !!activo });
+  return { id, activo: !!activo };
+}
+
+/** RF16: asigna una contraseña nueva. */
+function restablecerClave(token, id, clave) {
+  sesion_(token, 'ADMIN');
+  if (!clave) throw new Error('Escribe la nueva contraseña.');
+  const salt = nuevoId_();
+  actualizar_('Operadores', buscarOperador_(id)._fila, { hash: hash_(String(clave), salt), salt });
+  return { id };
+}
+
 // ----- Db.js -----
 /**
  * Acceso a datos: cada hoja del Spreadsheet es una tabla y la fila 1 son los encabezados.
@@ -198,7 +393,7 @@ function listarNovedades(token) {
 
 const ESQUEMA = {
   Operadores:    ['id', 'usuario', 'nombre', 'rol', 'hash', 'salt', 'activo'],
-  Usuarios:      ['id', 'documento', 'nombre', 'telefono', 'email'],
+  Usuarios:      ['id', 'documento', 'nombre', 'telefono', 'email', 'estado', 'fecha_registro'],
   Vehiculos:     ['placa', 'tipo', 'marca', 'color', 'usuario_id'],
   Mensualidades: ['id', 'usuario_id', 'fecha_inicio', 'fecha_fin', 'valor', 'estado'],
   Celdas:        ['codigo', 'tipo', 'estado'],
@@ -206,6 +401,22 @@ const ESQUEMA = {
                   'operador_entrada', 'operador_salida', 'estado'],
   Novedades:     ['id', 'registro_id', 'placa', 'descripcion', 'fecha', 'operador']
 };
+
+const VERSION_ESQUEMA = '2';
+
+/** Agrega a cada hoja las columnas nuevas del esquema (migración entre iteraciones). */
+function migrarColumnas_(ss) {
+  Object.keys(ESQUEMA).forEach(nombre => {
+    const sh = ss.getSheetByName(nombre);
+    const encabezados = sh.getDataRange().getValues()[0];
+    ESQUEMA[nombre].forEach(col => {
+      if (encabezados.indexOf(col) < 0) {
+        encabezados.push(col);
+        sh.getRange(1, encabezados.length).setValue(col).setFontWeight('bold');
+      }
+    });
+  });
+}
 
 function hoja_(nombre) {
   const id = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
@@ -223,20 +434,28 @@ function leer_(nombre) {
   });
 }
 
+/** Encabezados reales de la hoja (la escritura se hace por nombre de columna). */
+function encabezados_(sh) {
+  return sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+}
+
 function insertar_(nombre, obj) {
-  hoja_(nombre).appendRow(ESQUEMA[nombre].map(col => obj[col] ?? ''));
+  const sh = hoja_(nombre);
+  sh.appendRow(encabezados_(sh).map(col => obj[col] ?? ''));
 }
 
 function insertarVarios_(nombre, objetos) {
-  const filas = objetos.map(o => ESQUEMA[nombre].map(col => o[col] ?? ''));
-  const sh = hoja_(nombre);
-  sh.getRange(sh.getLastRow() + 1, 1, filas.length, filas[0].length).setValues(filas);
+  if (!objetos.length) return;
+  const sh = hoja_(nombre), enc = encabezados_(sh);
+  const filas = objetos.map(o => enc.map(col => o[col] ?? ''));
+  sh.getRange(sh.getLastRow() + 1, 1, filas.length, enc.length).setValues(filas);
 }
 
 function actualizar_(nombre, fila, cambios) {
-  const sh = hoja_(nombre);
+  const sh = hoja_(nombre), enc = encabezados_(sh);
   Object.keys(cambios).forEach(col => {
-    sh.getRange(fila, ESQUEMA[nombre].indexOf(col) + 1).setValue(cambios[col]);
+    const c = enc.indexOf(col) + 1;
+    if (c > 0) sh.getRange(fila, c).setValue(cambios[col]);
   });
 }
 

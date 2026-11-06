@@ -22,7 +22,13 @@ function registrarEntrada(token, textoPlaca, tipoElegido) {
 
     const vehiculo = leer_('Vehiculos').find(v => String(v.placa).trim().toUpperCase() === placa);
     const tipo = String(vehiculo ? vehiculo.tipo : tipoElegido).trim().toUpperCase() === 'MOTO' ? 'MOTO' : 'CARRO';
-    const celda = leer_('Celdas').find(c => c.tipo === tipo && c.estado === 'LIBRE');
+    const dueno = vehiculo && vehiculo.usuario_id ? leer_('Usuarios').find(u => u.id === vehiculo.usuario_id) : null;
+    if (dueno && dueno.estado === 'INACTIVO') throw new Error(`El usuario ${dueno.nombre} está inactivo; ${placa} no puede ingresar.`);
+
+    // Primero la celda fija del usuario; si no tiene o está ocupada, una celda libre sin asignar.
+    const celdas = leer_('Celdas');
+    const celda = (dueno && celdas.find(c => c.usuario_id === dueno.id && c.tipo === tipo && c.estado === 'LIBRE')) ||
+                  celdas.find(c => c.tipo === tipo && c.estado === 'LIBRE' && !c.usuario_id);
     if (!celda) throw new Error(`No hay celdas libres para ${tipo === 'MOTO' ? 'motos' : 'carros'}.`);
     if (!vehiculo) insertar_('Vehiculos', { placa, tipo });
 
@@ -55,11 +61,12 @@ function registrarSalida(token, textoPlaca) {
 
 function obtenerOcupacion(token) {
   sesion_(token);
-  const abiertos = {};
+  const abiertos = {}, nombres = {};
   leer_('Registros').filter(r => r.estado === 'ABIERTO').forEach(r => { abiertos[r.celda] = r; });
-  return leer_('Celdas').map(c => {
+  leer_('Usuarios').forEach(u => { nombres[u.id] = u.nombre; });
+  return leer_('Celdas').sort((a, b) => String(a.codigo).localeCompare(String(b.codigo))).map(c => {
     const r = abiertos[c.codigo];
-    return { codigo: c.codigo, tipo: c.tipo, estado: c.estado,
+    return { codigo: c.codigo, tipo: c.tipo, estado: c.estado, asignada: c.usuario_id ? (nombres[c.usuario_id] || 'Asignada') : '',
       placa: r ? String(r.placa) : '', entrada: r ? fmt_(r.fecha_entrada) : '' };
   });
 }

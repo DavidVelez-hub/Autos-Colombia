@@ -10,12 +10,14 @@ function crearHoja(nombre) {
     nombre, filas,
     appendRow: r => { filas.push(r.map(coercer)); },
     getLastRow: () => filas.length,
+    getLastColumn: () => Math.max(0, ...filas.map(f => f.length)),
     deleteRow: r => { filas.splice(r - 1, 1); },
     setFrozenRows: () => {},
     getDataRange: () => ({ getValues: () => filas.map(f => f.slice()) }),
     getRange: (r, c, nr = 1, nc = 1) => ({
       setFontWeight: () => {},
-      setValue: v => { while (filas.length < r) filas.push([]); filas[r - 1][c - 1] = coercer(v); },
+      getValues: () => Array.from({ length: nr }, (_, i) => Array.from({ length: nc }, (_, j) => ((filas[r - 1 + i] || [])[c - 1 + j]) ?? '')),
+      setValue(v) { while (filas.length < r) filas.push([]); filas[r - 1][c - 1] = coercer(v); return this; },
       setValues: vals => vals.forEach((fila, i) => { while (filas.length < r + i) filas.push([]); fila.forEach((v, j) => { filas[r - 1 + i][c - 1 + j] = coercer(v); }); })
     })
   };
