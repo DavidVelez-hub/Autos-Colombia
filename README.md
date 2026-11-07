@@ -84,7 +84,7 @@ git init
 git add .
 git commit -m "Iteración 1: entrada y salida de vehículos"
 git branch -M main
-git remote add origin https://github.com/USUARIO/autos-colombia.git
+git remote add origin https://github.com/DavidVelez-hub/Autos-Colombia.git
 git push -u origin main
 ```
 
