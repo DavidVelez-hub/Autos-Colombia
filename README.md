@@ -76,16 +76,3 @@ gas_mock.js              Simulación de Google Apps Script usada por las pruebas
 |---|---|---|
 | admin | Admin123* | ADMIN (incluye historial) |
 | operador | Operador123* | OPERADOR |
-
-## Subir a GitHub
-
-```
-git init
-git add .
-git commit -m "Iteración 1: entrada y salida de vehículos"
-git branch -M main
-git remote add origin https://github.com/DavidVelez-hub/Autos-Colombia.git
-git push -u origin main
-```
-
-`.clasp.json` (contiene el scriptId) puede subirse. Las credenciales de clasp quedan en tu carpeta personal y no se suben.
